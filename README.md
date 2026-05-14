@@ -1,8 +1,9 @@
-# Jivara AI — Drug-Food Interaction Risk Scoring & Nutrition Analysis
+# Jivara AI API
 
-Modul AI dari sistem Jivara yang bertanggung jawab untuk menganalisis potensi interaksi obat-makanan dan mengestimasi nilai gizi. Dibangun sebagai bagian dari Capstone Project Coding Camp 2026.
+REST API untuk analisis interaksi obat-makanan dan rekomendasi makanan aman.
+Bagian dari Capstone Project Coding Camp 2026.
 
-**Penanggung jawab:** Hanif Rifan Ash Shidiq (AI Agent Reasoning & Nutrition Analysis)
+**Penanggung jawab:** Hanif Rifan Ash Shidiq (AI Engineer)
 
 ---
 
@@ -17,252 +18,202 @@ Foto Makanan
      v
   Nama Makanan (misal: "rendang")
      |
-     +----> /nutrition -----> mapping_image_nutrition.csv
-     |                             |
-     |                        unified_nutrition.csv (TKPI)
-     |                             |
-     |                        Estimasi kalori, protein, lemak, karbo
+     +----> /nutrition
+     |          Estimasi kalori, protein, lemak, karbo (sumber: TKPI)
      |
      +----> /interaction-check
-     |          |
-     |          +---> Hybrid NCF Model (risk scoring)
-     |          |         Input: food_id + drug_id + nutrition_features[4]
-     |          |         Output: severity score 0-1
-     |          |
-     |          +---> Knowledge Base (rule-based lookup)
-     |          |         Detail mekanisme, tipe interaksi
-     |          |
-     |          +---> Gemini LLM (jika risiko tinggi)
-     |                    Penjelasan bahasa awam untuk pasien
+     |          ExtraTrees model → severity score 0-5
+     |          Gemini LLM → penjelasan bahasa awam (jika risiko tinggi)
      |
      +----> /recommend
-                |
-                +---> Score semua 35 makanan terhadap obat pasien
-                +---> Urutkan dari risiko terendah (paling aman)
-                +---> Return daftar rekomendasi + makanan yang harus dihindari
+                Score 61 makanan terhadap obat pasien
+                Urutkan dari severity terendah → rekomendasi aman
 ```
 
-## Komponen AI
+## Tech Stack
 
-### 1. Hybrid NCF (Neural Collaborative Filtering) Risk Scorer
-
-Model prediksi skor risiko interaksi obat-makanan menggunakan pendekatan Hybrid NCF — menggabungkan sinyal collaborative filtering (embedding interaksi) dengan content-based features (nutrisi makanan).
-
-**Arsitektur (TensorFlow Functional API, 3 input):**
-```
-input_food_id ──┐
-                ├── InteractionEmbeddingLayer(embed_dim=32) ── Flatten ──┐
-input_drug_id ──┘                                                       │
-                                                                        ├── Concatenate ── Dense(128) ── Dense(64) ── Dense(32) ── sigmoid
-input_nutrition[4] ── Dense(16, relu) "nutrition_encoder" ──────────────┘
-```
-
-- **Collaborative signal:** Embedding makanan & obat (dim=32) digabung via element-wise multiply
-- **Content signal:** 4 fitur nutrisi (kalori, protein, lemak, karbo) dinormalisasi MinMaxScaler, di-encode jadi 16-dim
-- **Output:** skor severity ternormalisasi (0-1, dikali 5 untuk skala asli 0-5)
-
-**Custom Components:**
-| Komponen | Nama | Fungsi |
-|----------|------|--------|
-| Custom Layer | `InteractionEmbeddingLayer` | Embedding makanan & obat + interaction fusion |
-| Custom Loss | `MedicalAsymmetricLoss` | Penalti 1.3x untuk under-prediction (keamanan medis) |
-| Custom Callback | `RiskThresholdMonitor` | Early stopping saat val_mae <= target |
-
-**Validasi:** Stratified 5-Fold Cross Validation (karena dataset kecil, ~67 pasangan interaksi).
-
-**Format ekspor:** `.keras` + `nutrition_scaler.pkl` (MinMaxScaler untuk normalisasi fitur nutrisi)
-
-### 2. Nutrition Estimation Pipeline
-
-Menghitung estimasi nilai gizi berdasarkan hasil deteksi makanan:
-1. Nama kelas YOLO dipetakan ke key database via `mapping_image_nutrition.csv`
-2. Nilai gizi per 100g diambil dari `unified_nutrition.csv` (sumber: TKPI)
-3. Disesuaikan dengan berat porsi yang diminta
-
-### 3. LLM-Based Reasoning (Gemini)
-
-Jika model Deep Learning mendeteksi risiko tinggi (severity >= 3.0), sistem memanggil Gemini 2.5 Flash untuk memberikan penjelasan dalam bahasa Indonesia yang mudah dipahami pasien awam, termasuk alasan risiko dan saran alternatif.
-
-### 4. Food Recommendation System
-
-Sistem rekomendasi makanan aman berdasarkan obat pasien:
-1. Semua 35 makanan Indonesia di-score terhadap seluruh obat pasien menggunakan model Hybrid NCF
-2. Diambil skor risiko tertinggi per makanan (worst-case scenario)
-3. Makanan diurutkan dari skor terendah dan dikategorikan: Low Risk, Moderate, High Risk
-4. Dikembalikan top-N rekomendasi beserta informasi nutrisi, serta daftar makanan yang perlu dihindari
-
-### 5. Warning & Notification System
-
-Setiap interaksi berisiko tinggi otomatis dicatat ke sistem alert. Riwayat alert bisa diakses via endpoint `/alerts` untuk monitoring oleh perawat atau dokter.
-
-## Dataset
-
-| File | Isi | Dipakai untuk |
-|------|-----|---------------|
-| `indonesian_food_drug_interactions.json` | 35 makanan Indonesia + interaksi obat + severity | Training model DL, knowledge base |
-| `Drug to Food interactions Dataset.json` | 1400+ obat dari DrugBank | Referensi pendukung |
-| `drug_food_kb_final.json` | Knowledge base (format dict) | Rule-based lookup saat inference |
-| `mapping_image_nutrition.csv` | Mapping nama YOLO → nama di DB gizi | Pipeline estimasi gizi |
-| `unified_nutrition.csv` | 1468 bahan makanan (TKPI) | Database nilai gizi |
+- **Framework:** FastAPI + Uvicorn
+- **Model:** ExtraTrees Regressor (scikit-learn)
+- **LLM:** Gemini 2.5 Flash (opsional, untuk penjelasan risiko tinggi)
+- **Data:** 854 pasangan makanan-obat, 14 kategori farmakologis, 61 kelas makanan
 
 ## API Endpoints
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/` | Root, link ke dokumentasi |
-| GET | `/health` | Status server |
-| POST | `/detect` | Deteksi makanan dari foto (integrasi YOLO) |
-| POST | `/nutrition` | Estimasi nilai gizi |
-| POST | `/interaction-check` | Analisis interaksi obat-makanan + reasoning |
-| POST | `/recommend` | Rekomendasi makanan aman berdasarkan obat pasien |
-| GET | `/alerts` | Riwayat notifikasi risiko tinggi |
-| DELETE | `/alerts` | Hapus riwayat alert |
+| `GET` | `/health` | Health check |
+| `POST` | `/nutrition` | Estimasi nilai gizi |
+| `POST` | `/interaction-check` | Cek interaksi obat-makanan |
+| `POST` | `/recommend` | Rekomendasi makanan aman |
+| `GET` | `/alerts` | Riwayat notifikasi risiko |
+| `DELETE` | `/alerts` | Hapus riwayat alert |
 
-### Contoh Request `/interaction-check`
+### POST `/interaction-check`
 
+**Request:**
 ```json
 {
-  "yolo_class": "rendang",
-  "patient_medications": ["Anticoagulants", "Antidiabetics"]
+  "yolo_class": "tumis-kangkung",
+  "patient_medications": ["WARFARIN"]
 }
 ```
 
-### Contoh Response
-
+**Response:**
 ```json
 {
-  "detected_food": "rendang",
-  "highest_severity_score": 4.0,
+  "detected_food": "tumis-kangkung",
+  "highest_severity": 5.0,
   "status": "warning",
   "detailed_predictions": [
     {
-      "medication": "Anticoagulants",
-      "severity_score": 3.95,
-      "risk_level": "High Risk",
-      "interaction_type": "AVOID",
-      "mechanism": "CYP450_inhibition + pharmacodynamic_additive",
-      "description": "Turmeric (curcumin) inhibits CYP3A4..."
+      "medication": "WARFARIN",
+      "matched_categories": ["antikoagulan"],
+      "severity_score": 5.0,
+      "risk_level": "tinggi",
+      "risky_categories": ["antikoagulan"],
+      "mechanisms": ["Meningkatkan efek pengencer darah / antagonis vitamin K"]
     }
   ],
-  "alert_sent": true,
-  "alert_message": "Peringatan: interaksi berisiko tinggi...",
-  "llm_reasoning": "Penjelasan dari Gemini dalam bahasa awam..."
+  "llm_reasoning": "Peringatan: terdeteksi risiko interaksi...",
+  "recommended_foods": [
+    {"food_name": "apel", "severity_score": 0.0, "risk_level": "aman"}
+  ],
+  "alert_sent": true
 }
 ```
 
-### Contoh Request `/recommend`
+### POST `/recommend`
 
+**Request:**
 ```json
 {
-  "patient_medications": ["Anticoagulants", "Antihypertensives"],
+  "patient_medications": ["METFORMIN", "SIMVASTATIN"],
   "top_n": 5
 }
 ```
 
-### Contoh Response `/recommend`
-
+**Response:**
 ```json
 {
-  "patient_medications": ["Anticoagulants", "Antihypertensives"],
-  "total_foods_analyzed": 35,
-  "summary": {
-    "safe": 20,
-    "moderate": 10,
-    "high_risk": 5
+  "patient_medications": ["METFORMIN", "SIMVASTATIN"],
+  "matched_categories": {
+    "METFORMIN": ["antidiabetes"],
+    "SIMVASTATIN": ["statin"]
   },
+  "total_foods_analyzed": 61,
+  "summary": {"safe": 25, "avoid": 36},
   "recommended_foods": [
-    {
-      "food_name": "nasi-putih",
-      "max_severity_score": 0.85,
-      "risk_level": "Low Risk",
-      "nutrition": {
-        "calories_kcal": 175.0,
-        "proteins_g": 4.0,
-        "fats_g": 0.3,
-        "carbohydrates_g": 40.0
-      }
-    }
+    {"food_name": "ayam-betutu", "severity_score": 0.0, "risk_level": "aman"}
   ],
   "foods_to_avoid": [
-    {
-      "food_name": "rendang",
-      "max_severity_score": 3.95,
-      "risk_level": "High Risk",
-      "nutrition": { "..." }
-    }
+    {"food_name": "kunyit-asam", "severity_score": 5.0, "risk_level": "tinggi", "worst_category": "antidiabetes"}
   ]
 }
 ```
 
-## Cara Menjalankan
+### POST `/nutrition`
 
-### 1. Install Dependencies
+**Request:**
+```json
+{
+  "yolo_class": "rendang",
+  "portion_grams": 150
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "yolo_class": "rendang",
+  "matched_food": "Rendang sapi masakan",
+  "portion_grams": 150,
+  "nutrition_facts": {
+    "calories_kcal": 289.5,
+    "proteins_g": 33.9,
+    "fats_g": 11.85,
+    "carbohydrates_g": 11.7
+  }
+}
+```
+
+## Nama Obat yang Didukung
+
+| Kategori | Contoh Obat |
+|----------|-------------|
+| Antikoagulan | WARFARIN, CLOPIDOGREL, HEPARIN, RIVAROXABAN |
+| Antidiabetes | METFORMIN, GLIBENCLAMIDE, INSULIN, ACARBOSE |
+| ACE/ARB | CAPTOPRIL, LOSARTAN, VALSARTAN, CANDESARTAN |
+| CCB | AMLODIPINE, NIFEDIPINE, DILTIAZEM, VERAPAMIL |
+| Statin | SIMVASTATIN, ATORVASTATIN, ROSUVASTATIN |
+| Antibiotik Tetrasiklin | DOXYCYCLINE, TETRACYCLINE |
+| Antibiotik Fluorokuinolon | CIPROFLOXACIN, LEVOFLOXACIN |
+| MAOI | SELEGILINE, MOCLOBEMIDE, LINEZOLID |
+| Tiroid | LEVOTHYROXINE |
+| NSAID | IBUPROFEN, DICLOFENAC, MELOXICAM, NAPROXEN |
+| Antikonvulsan | PHENYTOIN, CARBAMAZEPINE, VALPROIC |
+| Glikosida Jantung | DIGOXIN |
+| Xantin | THEOPHYLLINE, AMINOPHYLLINE |
+| Imunosupresan | CYCLOSPORINE, TACROLIMUS |
+
+## Setup Lokal
 
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Konfigurasi API Key Gemini
-
-```bash
+# Konfigurasi API key Gemini (opsional)
 cp .env.example .env
-# Edit .env dan masukkan API key Gemini yang valid
+
+# Jalankan server
+python run.py
 ```
 
-### 3. Training Model (opsional, model sudah tersedia)
+Server berjalan di `http://localhost:8000`. Dokumentasi interaktif di `http://localhost:8000/docs`.
 
-Buka dan jalankan seluruh cell di `notebooks/01_model_training.ipynb`. Model akan disimpan ke `models/drug_risk_scorer.keras`.
+## Deploy ke Railway
 
-### 4. Jalankan API Server
-
-```bash
-python app/main.py
-```
-
-Server berjalan di `http://localhost:8000`. Dokumentasi interaktif tersedia di `http://localhost:8000/docs`.
+1. Push ke GitHub
+2. Railway → New Project → Deploy from GitHub
+3. Set environment variable `GEMINI_API_KEY` (opsional)
+4. Deploy otomatis dari `Dockerfile` atau `Procfile`
 
 ## Struktur Folder
 
 ```
-ai engineer/
+jivara-ai-api/
 ├── app/
-│   ├── main.py                 # FastAPI server + endpoints
-│   ├── model_inference.py      # Model loading + prediksi + LLM reasoning
-│   └── nutrition_service.py    # Pipeline estimasi gizi
+│   ├── main.py               # FastAPI server
+│   ├── model_inference.py     # ExtraTrees inference + Gemini LLM
+│   └── nutrition_service.py   # Estimasi gizi dari TKPI
 ├── data/
-│   ├── indonesian_food_drug_interactions.json
-│   ├── Drug to Food interactions Dataset.json
-│   ├── drug_food_kb_final.json
-│   ├── mapping_image_nutrition.csv
-│   └── unified_nutrition.csv
+│   ├── drug_food_interactions.csv    # Ground truth 854 pasangan
+│   ├── food_to_ingredient_kb.json    # 61 makanan + komposisi bahan
+│   ├── obat_bpom_cleaned_full.csv    # 23.682 produk obat BPOM
+│   └── unified_nutrition.csv         # 1.476 data gizi TKPI
 ├── models/
-│   ├── drug_risk_scorer.keras  # Model Hybrid NCF terlatih
-│   └── nutrition_scaler.pkl    # MinMaxScaler untuk fitur nutrisi
+│   └── drug_interaction_tree_model.pkl  # ExtraTrees model (92% CV accuracy)
 ├── notebooks/
-│   └── 01_model_training.ipynb # Notebook training + evaluasi
-├── logs/                       # TensorBoard logs
+│   ├── 01_model_training.ipynb                    # Eksperimen Hybrid NCF
+│   └── 02_tree_based_recommender_all_in_one.ipynb # Training ExtraTrees (model utama)
+├── scripts/
+│   ├── generate_drug_food_interactions.py  # Generate ground truth CSV
+│   └── train_tree_interaction_model.py     # Training script
+├── Dockerfile
+├── Procfile
 ├── requirements.txt
-├── .env.example
-├── .gitignore
-└── README.md
+├── run.py
+└── .env.example
 ```
 
 ## Evaluasi Model
 
-Hasil evaluasi dengan Stratified 5-Fold Cross Validation dan model final dilaporkan di notebook `01_model_training.ipynb`.
+Model: **ExtraTrees Regressor** (5-Fold Stratified CV)
 
-Target performa:
-- MAE <= 0.02 (pada skala 0-1)
-- Akurasi klasifikasi risiko >= 85%
+| Metrik | Nilai |
+|--------|-------|
+| MAE (0-5) | 0.164 |
+| RMSE (0-5) | 0.633 |
+| Risk Accuracy | 92.04% |
 
-Catatan: Jalankan ulang notebook untuk melihat angka evaluasi terbaru setelah perubahan arsitektur.
-
-## TensorBoard
-
-Log training tersimpan di folder `logs/`. Untuk memvisualisasikan:
-
-```bash
-tensorboard --logdir=logs
-```
-
-Buka `http://localhost:6006` di browser.
+Risk category: aman, ringan, sedang, tinggi.
