@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
 COPY data/ data/
-COPY models/drug_interaction_tree_model.pkl models/
+COPY models/ models/
 
 EXPOSE 8000
 
