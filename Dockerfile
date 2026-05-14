@@ -8,7 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ app/
 COPY data/ data/
 COPY models/ models/
+COPY run.py .
 
 EXPOSE 8000
 
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+CMD ["python", "run.py"]
