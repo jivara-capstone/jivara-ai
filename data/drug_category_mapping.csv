@@ -1,0 +1,87 @@
+drug_name,drug_category,category_label_id,mechanism
+WARFARIN,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+CLOPIDOGREL,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+HEPARIN,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+ENOXAPARIN,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+RIVAROXABAN,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+APIXABAN,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+TICAGRELOR,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+ACENOCOUMAROL,Antikoagulan,antikoagulan,Meningkatkan efek pengencer darah atau antagonis vitamin K
+METFORMIN,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+GLIBENCLAMIDE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+GLIMEPIRIDE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+GLIPIZIDE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+GLICLAZIDE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+INSULIN,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+ACARBOSE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+PIOGLITAZONE,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+SITAGLIPTIN,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+VILDAGLIPTIN,Antidiabetes,antidiabetes,Makanan tinggi gula dapat mengganggu kontrol glikemik
+CAPTOPRIL,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+ENALAPRIL,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+LISINOPRIL,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+RAMIPRIL,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+LOSARTAN,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+VALSARTAN,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+IRBESARTAN,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+CANDESARTAN,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+TELMISARTAN,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+PERINDOPRIL,ACE inhibitor / ARB,ace_arb,Makanan tinggi kalium dapat meningkatkan risiko hiperkalemia
+AMLODIPINE,Calcium Channel Blocker,ccb,Jeruk atau grapefruit dapat menghambat CYP3A4 dan meningkatkan kadar obat
+NIFEDIPINE,Calcium Channel Blocker,ccb,Jeruk atau grapefruit dapat menghambat CYP3A4 dan meningkatkan kadar obat
+DILTIAZEM,Calcium Channel Blocker,ccb,Jeruk atau grapefruit dapat menghambat CYP3A4 dan meningkatkan kadar obat
+VERAPAMIL,Calcium Channel Blocker,ccb,Jeruk atau grapefruit dapat menghambat CYP3A4 dan meningkatkan kadar obat
+FELODIPINE,Calcium Channel Blocker,ccb,Jeruk atau grapefruit dapat menghambat CYP3A4 dan meningkatkan kadar obat
+SIMVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+ATORVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+LOVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+ROSUVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+PRAVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+FLUVASTATIN,Statin,statin,CYP3A4 inhibitor dan makanan tinggi lemak dapat meningkatkan risiko efek samping
+DOXYCYCLINE,Antibiotik Tetrasiklin,antibiotik_tetrasiklin,Kalsium dan mineral dapat mengikat antibiotik dan mengurangi absorpsi
+TETRACYCLINE,Antibiotik Tetrasiklin,antibiotik_tetrasiklin,Kalsium dan mineral dapat mengikat antibiotik dan mengurangi absorpsi
+MINOCYCLINE,Antibiotik Tetrasiklin,antibiotik_tetrasiklin,Kalsium dan mineral dapat mengikat antibiotik dan mengurangi absorpsi
+OXYTETRACYCLINE,Antibiotik Tetrasiklin,antibiotik_tetrasiklin,Kalsium dan mineral dapat mengikat antibiotik dan mengurangi absorpsi
+CIPROFLOXACIN,Antibiotik Fluorokuinolon,antibiotik_fluorokuinolon,Kation divalen seperti kalsium dan magnesium dapat mengurangi absorpsi antibiotik
+LEVOFLOXACIN,Antibiotik Fluorokuinolon,antibiotik_fluorokuinolon,Kation divalen seperti kalsium dan magnesium dapat mengurangi absorpsi antibiotik
+MOXIFLOXACIN,Antibiotik Fluorokuinolon,antibiotik_fluorokuinolon,Kation divalen seperti kalsium dan magnesium dapat mengurangi absorpsi antibiotik
+OFLOXACIN,Antibiotik Fluorokuinolon,antibiotik_fluorokuinolon,Kation divalen seperti kalsium dan magnesium dapat mengurangi absorpsi antibiotik
+NORFLOXACIN,Antibiotik Fluorokuinolon,antibiotik_fluorokuinolon,Kation divalen seperti kalsium dan magnesium dapat mengurangi absorpsi antibiotik
+SELEGILINE,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+MOCLOBEMIDE,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+LINEZOLID,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+TRANYLCYPROMINE,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+PHENELZINE,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+RASAGILINE,MAOI,maoi,Tyramine dalam makanan fermentasi dapat menyebabkan krisis hipertensi
+LEVOTHYROXINE,Obat Tiroid,tiroid,Kedelai dan kalsium dapat mengganggu absorpsi hormon tiroid
+LIOTHYRONINE,Obat Tiroid,tiroid,Kedelai dan kalsium dapat mengganggu absorpsi hormon tiroid
+THYROXINE,Obat Tiroid,tiroid,Kedelai dan kalsium dapat mengganggu absorpsi hormon tiroid
+LEVOTIROKSIN,Obat Tiroid,tiroid,Kedelai dan kalsium dapat mengganggu absorpsi hormon tiroid
+IBUPROFEN,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+DIKLOFENAK,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+DICLOFENAC,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+MELOXICAM,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+PIROXICAM,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+KETOROLAC,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+NAPROXEN,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+ASAM MEFENAMAT,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+INDOMETASIN,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+CELECOXIB,NSAID,nsaid,Makanan asam dapat memperburuk iritasi lambung
+PHENYTOIN,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+FENITOIN,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+CARBAMAZEPINE,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+KARBAMAZEPIN,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+VALPROIC,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+PHENOBARBITAL,Antikonvulsan,antikonvulsan,Kalsium dan protein tinggi dapat mengubah absorpsi antikonvulsan
+DIGOXIN,Glikosida Jantung,glikosida_jantung,Perubahan kadar kalium dapat mempengaruhi toksisitas digitalis
+DIGOKSIN,Glikosida Jantung,glikosida_jantung,Perubahan kadar kalium dapat mempengaruhi toksisitas digitalis
+THEOPHYLLINE,Xantin,xantin,Kafein dapat berkompetisi dan meningkatkan risiko toksisitas
+TEOFILIN,Xantin,xantin,Kafein dapat berkompetisi dan meningkatkan risiko toksisitas
+AMINOPHYLLINE,Xantin,xantin,Kafein dapat berkompetisi dan meningkatkan risiko toksisitas
+AMINOFILIN,Xantin,xantin,Kafein dapat berkompetisi dan meningkatkan risiko toksisitas
+CYCLOSPORINE,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
+SIKLOSPORIN,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
+TACROLIMUS,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
+SIROLIMUS,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
+EVEROLIMUS,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
+MYCOPHENOLATE,Imunosupresan,imunosupresan,CYP3A4 inhibitor dapat meningkatkan kadar dan toksisitas obat
