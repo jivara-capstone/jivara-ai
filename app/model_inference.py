@@ -23,76 +23,98 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 ENABLE_GEMINI_REASONING = os.getenv("ENABLE_GEMINI_REASONING", "false").lower() == "true"
 
 DEFAULT_DRUG_CATEGORIES = {
-    "antikoagulan": {
-        "keywords": ["WARFARIN", "CLOPIDOGREL", "HEPARIN", "ENOXAPARIN",
-                     "RIVAROXABAN", "APIXABAN", "TICAGRELOR", "ACENOCOUMAROL"],
-        "mechanism": "Meningkatkan efek pengencer darah / antagonis vitamin K",
-    },
-    "antidiabetes": {
-        "keywords": ["METFORMIN", "GLIBENCLAMIDE", "GLIMEPIRIDE", "GLIPIZIDE",
-                     "GLICLAZIDE", "INSULIN", "ACARBOSE", "PIOGLITAZONE",
-                     "SITAGLIPTIN", "VILDAGLIPTIN"],
-        "mechanism": "Makanan tinggi gula mengganggu kontrol glikemik",
-    },
     "ace_arb": {
-        "keywords": ["CAPTOPRIL", "ENALAPRIL", "LISINOPRIL", "RAMIPRIL",
-                     "LOSARTAN", "VALSARTAN", "IRBESARTAN", "CANDESARTAN",
-                     "TELMISARTAN", "PERINDOPRIL"],
+        "keywords": ["CANDESARTAN", "CAPTOPRIL", "ENALAPRIL", "IMIDAPRIL",
+                     "IRBESARTAN", "LISINOPRIL", "LOSARTAN", "OLMESARTAN",
+                     "RAMIPRIL", "TELMISARTAN", "VALSARTAN"],
         "mechanism": "Makanan tinggi kalium meningkatkan risiko hiperkalemia",
-    },
-    "ccb": {
-        "keywords": ["AMLODIPINE", "NIFEDIPINE", "DILTIAZEM", "VERAPAMIL",
-                     "FELODIPINE"],
-        "mechanism": "Jeruk/grapefruit menghambat CYP3A4, meningkatkan kadar obat",
-    },
-    "statin": {
-        "keywords": ["SIMVASTATIN", "ATORVASTATIN", "LOVASTATIN",
-                     "ROSUVASTATIN", "PRAVASTATIN", "FLUVASTATIN"],
-        "mechanism": "CYP3A4 inhibitor dan lemak tinggi meningkatkan absorpsi berlebih",
-    },
-    "antibiotik_tetrasiklin": {
-        "keywords": ["DOXYCYCLINE", "TETRACYCLINE", "MINOCYCLINE",
-                     "OXYTETRACYCLINE"],
-        "mechanism": "Kalsium dan mineral mengikat antibiotik, mengurangi absorpsi",
     },
     "antibiotik_fluorokuinolon": {
         "keywords": ["CIPROFLOXACIN", "LEVOFLOXACIN", "MOXIFLOXACIN",
-                     "OFLOXACIN", "NORFLOXACIN"],
+                     "NORFLOXACIN", "OFLOXACIN"],
         "mechanism": "Kation divalen (Ca, Mg, Fe) mengurangi absorpsi antibiotik",
     },
-    "maoi": {
-        "keywords": ["SELEGILINE", "MOCLOBEMIDE", "LINEZOLID",
-                     "TRANYLCYPROMINE", "PHENELZINE", "RASAGILINE"],
-        "mechanism": "Tyramine dalam makanan fermentasi menyebabkan krisis hipertensi",
+    "antibiotik_tetrasiklin": {
+        "keywords": ["DOKSISIKLIN", "DOXYCYCLINE", "MINOCYCLINE",
+                     "TETRACYCLINE", "TETRASIKLIN"],
+        "mechanism": "Kalsium dan mineral mengikat antibiotik, mengurangi absorpsi",
     },
-    "tiroid": {
-        "keywords": ["LEVOTHYROXINE", "LIOTHYRONINE", "THYROXINE",
-                     "LEVOTIROKSIN"],
-        "mechanism": "Kedelai dan kalsium mengganggu absorpsi hormon tiroid",
+    "antidiabetes": {
+        "keywords": ["ACARBOSE", "DAPAGLIFLOZIN", "EMPAGLIFLOZIN",
+                     "GLIBENCLAMIDE", "GLICLAZIDE", "GLIMEPIRIDE", "GLIPIZIDE",
+                     "INSULIN", "LINAGLIPTIN", "METFORMIN", "PIOGLITAZONE",
+                     "SITAGLIPTIN"],
+        "mechanism": "Makanan tinggi gula mengganggu kontrol glikemik",
     },
-    "nsaid": {
-        "keywords": ["IBUPROFEN", "DIKLOFENAK", "DICLOFENAC", "MELOXICAM",
-                     "PIROXICAM", "KETOROLAC", "NAPROXEN",
-                     "ASAM MEFENAMAT", "INDOMETASIN", "CELECOXIB"],
-        "mechanism": "Asam memperburuk iritasi lambung yang disebabkan NSAID",
+    "antikoagulan": {
+        "keywords": ["APIXABAN", "DABIGATRAN", "ENOXAPARIN", "FONDAPARINUX",
+                     "HEPARIN", "RIVAROXABAN", "WARFARIN"],
+        "mechanism": "Meningkatkan efek pengencer darah / antagonis vitamin K",
     },
     "antikonvulsan": {
-        "keywords": ["PHENYTOIN", "FENITOIN", "CARBAMAZEPINE",
-                     "KARBAMAZEPIN", "VALPROIC", "PHENOBARBITAL"],
+        "keywords": ["CARBAMAZEPINE", "FENITOIN", "GABAPENTIN", "KARBAMAZEPIN",
+                     "LAMOTRIGINE", "LEVETIRACETAM", "PHENYTOIN", "PREGABALIN",
+                     "TOPIRAMATE", "VALPROATE", "VALPROIC"],
         "mechanism": "Kalsium dan protein tinggi mengubah absorpsi antikonvulsan",
     },
+    "ccb": {
+        "keywords": ["AMLODIPINE", "DILTIAZEM", "LERCANIDIPINE",
+                     "NIFEDIPINE", "VERAPAMIL"],
+        "mechanism": "Jeruk/grapefruit menghambat CYP3A4, meningkatkan kadar obat",
+    },
+    "diuretik_hemat_kalium": {
+        "keywords": ["AMILORIDE", "EPLERENONE", "SPIRONOLACTONE",
+                     "SPIRONOLAKTON", "TRIAMTERENE"],
+        "mechanism": "Makanan tinggi kalium meningkatkan risiko hiperkalemia berat",
+    },
+    "dopaminergik_parkinson": {
+        "keywords": ["BENSERAZIDE", "CARBIDOPA", "LEVODOPA"],
+        "mechanism": "Protein tinggi menghambat absorpsi levodopa di usus",
+    },
     "glikosida_jantung": {
-        "keywords": ["DIGOXIN", "DIGOKSIN"],
+        "keywords": ["DIGOXIN"],
         "mechanism": "Perubahan kadar kalium mempengaruhi toksisitas digitalis",
     },
-    "xantin": {
-        "keywords": ["THEOPHYLLINE", "TEOFILIN", "AMINOPHYLLINE", "AMINOFILIN"],
-        "mechanism": "Kafein berkompetisi; lemak tinggi mengubah farmakokinetik",
-    },
     "imunosupresan": {
-        "keywords": ["CYCLOSPORINE", "SIKLOSPORIN", "TACROLIMUS",
-                     "SIROLIMUS", "EVEROLIMUS", "MYCOPHENOLATE"],
+        "keywords": ["AZATHIOPRINE", "CICLOSPORIN", "CYCLOSPORINE",
+                     "METHOTREXATE", "MIKOFENOLAT", "MYCOPHENOLATE",
+                     "SIROLIMUS", "TACROLIMUS"],
         "mechanism": "CYP3A4 inhibitor meningkatkan kadar dan toksisitas obat",
+    },
+    "kortikosteroid": {
+        "keywords": ["BETAMETASON", "BETAMETHASONE", "BUDESONID", "BUDESONIDE",
+                     "DEKSAMETASON", "DEXAMETHASONE", "FLUTICASONE", "FLUTIKASON",
+                     "HIDROKORTISON", "HYDROCORTISONE", "METHYLPREDNISOLONE",
+                     "METILPREDNISOLON", "MOMETASON", "MOMETASONE",
+                     "PREDNISOLON", "PREDNISOLONE", "PREDNISON", "PREDNISONE",
+                     "TRIAMCINOLONE", "TRIAMSINOLON"],
+        "mechanism": "Meningkatkan gula darah dan retensi natrium; makanan tinggi gula/garam memperburuk efek samping",
+    },
+    "maoi": {
+        "keywords": ["MOCLOBEMIDE", "PHENELZINE", "SELEGILINE"],
+        "mechanism": "Tyramine dalam makanan fermentasi menyebabkan krisis hipertensi",
+    },
+    "nsaid": {
+        "keywords": ["ACETYLSALICYLIC", "ASPIRIN", "CELECOXIB", "DEXKETOPROFEN",
+                     "DICLOFENAC", "ETORICOXIB", "IBUPROFEN", "KETOPROFEN",
+                     "KETOROLAC", "MEFENAMIC", "MELOXICAM", "NABUMETONE",
+                     "NAPROXEN", "PIROXICAM"],
+        "mechanism": "Asam memperburuk iritasi lambung yang disebabkan NSAID",
+    },
+    "statin": {
+        "keywords": ["ATORVASTATIN", "FLUVASTATIN", "PITAVASTATIN",
+                     "PRAVASTATIN", "ROSUVASTATIN", "SIMVASTATIN"],
+        "mechanism": "CYP3A4 inhibitor dan lemak tinggi meningkatkan absorpsi berlebih",
+    },
+    "tiroid": {
+        "keywords": ["LEVOTHYROXINE", "LEVOTIROKSIN", "METHIMAZOLE",
+                     "PROPYLTHIOURACIL", "THIAMAZOLE"],
+        "mechanism": "Kedelai dan kalsium mengganggu absorpsi hormon tiroid",
+    },
+    "xantin": {
+        "keywords": ["AMINOFILIN", "AMINOPHYLLINE", "CAFFEINE", "KAFEIN",
+                     "TEOFILIN", "THEOPHYLLINE"],
+        "mechanism": "Kafein berkompetisi; lemak tinggi mengubah farmakokinetik",
     },
 }
 
