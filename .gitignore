@@ -1,6 +1,10 @@
 # Environment
 .env
 .venv/
+data/images
+data/labels
+data/data.zip
+data/data.yaml
 
 # Python
 __pycache__/
