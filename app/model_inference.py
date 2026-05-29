@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,6 +13,12 @@ load_dotenv()
 # Global State
 # =====================================================================
 
+# TensorFlow Model & Encoder (NEW)
+tf_model = None
+label_encoder = None
+ingredient_vocab: list[str] = []
+
+# Legacy ExtraTrees state (deprecated but keeping for backward compatibility)
 tree_pipeline = None
 drug_categories: dict = {}
 active_keywords: list[str] = []
@@ -20,7 +27,8 @@ food_classes: list[str] = []
 df_bpom: pd.DataFrame | None = None
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-ENABLE_GEMINI_REASONING = os.getenv("ENABLE_GEMINI_REASONING", "false").lower() == "true"
+ENABLE_GEMINI_REASONING = os.getenv(
+    "ENABLE_GEMINI_REASONING", "false").lower() == "true"
 
 DEFAULT_DRUG_CATEGORIES = {
     "ace_arb": {
@@ -120,39 +128,104 @@ DEFAULT_DRUG_CATEGORIES = {
 
 
 # =====================================================================
+# Custom TensorFlow Components (for model loading)
+# =====================================================================
+
+def asymmetric_severity_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    """Custom loss function: asymmetric penalty on underprediction."""
+    error = y_true - y_pred
+    squared_error = tf.square(error)
+    penalty = tf.where(y_pred < y_true, 3.0, 1.0)
+    weighted_loss = squared_error * penalty
+    return tf.reduce_mean(weighted_loss)
+
+
+# =====================================================================
 # Inisialisasi Model
 # =====================================================================
 
 def init_model() -> bool:
-    """Load model ExtraTrees dan semua artifacts yang dibutuhkan."""
-    global tree_pipeline, drug_categories, active_keywords
-    global food_to_ingredients, food_classes, df_bpom
+    """Load TensorFlow model, encoder, dan artifacts yang dibutuhkan (NEW)."""
+    global tf_model, label_encoder, ingredient_vocab
+    global drug_categories, food_to_ingredients, food_classes, df_bpom
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    model_path = os.path.join(base_dir, "models", "drug_interaction_tree_model.pkl")
+
+    # Paths for TensorFlow model (NEW)
+    tf_model_path = os.path.join(
+        base_dir, "models", "jivara_tf_reasoning.keras")
+    encoder_path = os.path.join(
+        base_dir, "models", "drug_category_encoder.pkl")
+
+    # Paths for data artifacts
     food_kb_path = os.path.join(base_dir, "data", "food_to_ingredient_kb.json")
     bpom_path = os.path.join(base_dir, "data", "obat_bpom_cleaned_full.csv")
 
-    if not os.path.exists(model_path):
-        print(f"[ERROR] Model tidak ditemukan: {model_path}")
+    # Load TensorFlow model (NEW)
+    if not os.path.exists(tf_model_path):
+        print(f"[ERROR] TensorFlow model tidak ditemukan: {tf_model_path}")
         return False
 
-    with open(model_path, "rb") as f:
-        bundle = pickle.load(f)
+    try:
+        tf_model = tf.keras.models.load_model(
+            tf_model_path,
+            custom_objects={
+                'asymmetric_severity_loss': asymmetric_severity_loss}
+        )
+        print(f"[OK] TensorFlow model dimuat dari {tf_model_path}")
+    except Exception as e:
+        print(f"[ERROR] Gagal load TensorFlow model: {e}")
+        return False
 
-    tree_pipeline = bundle["pipeline"]
-    active_keywords = bundle.get("active_keywords", [])
-    food_classes = bundle.get("food_classes", [])
-    drug_categories = bundle.get("drug_categories") or DEFAULT_DRUG_CATEGORIES
+    # Load LabelEncoder (NEW)
+    if not os.path.exists(encoder_path):
+        print(f"[ERROR] LabelEncoder tidak ditemukan: {encoder_path}")
+        return False
 
+    try:
+        with open(encoder_path, "rb") as f:
+            label_encoder = pickle.load(f)
+        print(
+            f"[OK] LabelEncoder dimuat dengan {len(label_encoder.classes_)} kategori obat")
+    except Exception as e:
+        print(f"[ERROR] Gagal load encoder: {e}")
+        return False
+
+    # Load food-ingredient KB (for ingredient vocabulary and food_to_ingredients)
     if os.path.exists(food_kb_path):
-        with open(food_kb_path, "r", encoding="utf-8") as f:
-            food_to_ingredients = json.load(f)["food_to_ingredients"]
+        try:
+            with open(food_kb_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                food_to_ingredients = data.get("food_to_ingredients", {})
 
+                # Build ingredient vocabulary from KB
+                all_ingredients = set()
+                for ingredients in food_to_ingredients.values():
+                    all_ingredients.update(ingredients)
+                ingredient_vocab = sorted(list(all_ingredients))
+
+                print(
+                    f"[OK] Food KB dimuat: {len(food_to_ingredients)} makanan, {len(ingredient_vocab)} ingredients")
+        except Exception as e:
+            print(f"[WARNING] Gagal load food KB: {e}")
+            return False
+
+    # Load BPOM database (for drug mapping fallback)
     if os.path.exists(bpom_path):
-        df_bpom = pd.read_csv(bpom_path)
+        try:
+            df_bpom = pd.read_csv(bpom_path)
+            print(f"[OK] BPOM database dimuat: {len(df_bpom)} obat")
+        except Exception as e:
+            print(f"[WARNING] Gagal load BPOM database: {e}")
 
-    print(f"[OK] Model ExtraTrees dimuat — {len(food_classes)} makanan, {len(drug_categories)} kategori obat")
+    # Set default drug categories for mechanism explanations
+    drug_categories = DEFAULT_DRUG_CATEGORIES
+
+    # Build food_classes list from food_to_ingredients keys
+    food_classes = list(food_to_ingredients.keys())
+
+    print(
+        f"[OK] Model initialization selesai: {len(food_classes)} food classes, {len(drug_categories)} drug categories")
     return True
 
 
@@ -170,21 +243,46 @@ def _severity_to_risk(severity: float) -> str:
     return "tinggi"
 
 
-def _get_ingredient_features(food_name: str) -> list[float]:
+def _get_ingredient_features(food_name: str) -> np.ndarray:
+    """Get multi-hot encoded ingredient features for a food (NEW TensorFlow version)."""
     ingredients = food_to_ingredients.get(food_name, [])
-    return [
-        1.0 if any(kw.lower() in ingr.lower() for ingr in ingredients) else 0.0
-        for kw in active_keywords
-    ]
+    encoded = np.zeros(len(ingredient_vocab), dtype=np.float32)
+
+    for ing in ingredients:
+        if ing in ingredient_vocab:
+            idx = ingredient_vocab.index(ing)
+            encoded[idx] = 1.0
+
+    return encoded
 
 
-def _predict_severity(food_name: str, drug_category: str) -> float:
-    features = {"food_class": food_name, "drug_category": drug_category}
-    for kw, val in zip(active_keywords, _get_ingredient_features(food_name)):
-        features[f"kw_{kw}"] = val
-    df = pd.DataFrame([features])
-    severity = float(tree_pipeline.predict(df)[0])
-    return float(np.clip(severity, 0.0, 5.0))
+def _predict_severity_tf(food_name: str, drug_category: str) -> float:
+    """Predict severity using TensorFlow model (NEW)."""
+    if tf_model is None or label_encoder is None:
+        print(f"[WARNING] TensorFlow model not loaded, returning safe score")
+        return 0.0
+
+    try:
+        # Encode drug category
+        drug_cat_encoded = label_encoder.transform([drug_category])[0]
+
+        # Get multi-hot ingredient features
+        ing_features = _get_ingredient_features(food_name)
+
+        # Prepare inputs for model
+        drug_input = np.array([[drug_cat_encoded]], dtype=np.int32)
+        ing_input = ing_features.reshape(1, -1)
+
+        # Predict
+        severity = float(tf_model.predict(
+            [drug_input, ing_input], verbose=0)[0][0])
+
+        # Clip to valid range
+        return float(np.clip(severity, 0.0, 5.0))
+    except Exception as e:
+        print(
+            f"[ERROR] Prediction failed for {food_name}/{drug_category}: {e}")
+        return 0.0
 
 
 def map_drug_to_categories(drug_name: str) -> list[str]:
@@ -200,7 +298,8 @@ def map_drug_to_categories(drug_name: str) -> list[str]:
 
     if not matched and df_bpom is not None:
         bpom_match = df_bpom[
-            df_bpom["Nama Produk"].str.upper().str.contains(drug_upper, na=False)
+            df_bpom["Nama Produk"].str.upper(
+            ).str.contains(drug_upper, na=False)
         ]
         if not bpom_match.empty:
             composition = str(bpom_match.iloc[0]["Komposisi"]).upper()
@@ -242,7 +341,7 @@ def check_interaction_with_reasoning(
         risky_cats = []
 
         for cat in cats:
-            severity = _predict_severity(food_name, cat)
+            severity = _predict_severity_tf(food_name, cat)
             if severity > max_severity:
                 max_severity = severity
             if severity >= 2.5:
@@ -343,7 +442,7 @@ def get_food_recommendations(medications: list[str], top_n: int = 10) -> dict:
         max_severity = 0.0
         worst_cat = None
         for cat in all_cats:
-            severity = _predict_severity(food, cat)
+            severity = _predict_severity_tf(food, cat)
             if severity > max_severity:
                 max_severity = severity
                 worst_cat = cat
@@ -357,8 +456,10 @@ def get_food_recommendations(medications: list[str], top_n: int = 10) -> dict:
 
     food_scores.sort(key=lambda x: x["severity_score"])
 
-    safe_foods = [f for f in food_scores if f["risk_level"] in ("aman", "ringan")]
-    avoid_foods = [f for f in food_scores if f["risk_level"] in ("sedang", "tinggi")]
+    safe_foods = [f for f in food_scores if f["risk_level"]
+                  in ("aman", "ringan")]
+    avoid_foods = [f for f in food_scores if f["risk_level"]
+                   in ("sedang", "tinggi")]
 
     return {
         "patient_medications": medications,
