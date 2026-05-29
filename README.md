@@ -22,7 +22,8 @@ Foto Makanan
      |          Estimasi kalori, protein, lemak, karbo (sumber: TKPI)
      |
      +----> /interaction-check
-     |          ExtraTrees model → severity score 0-5
+     |          TensorFlow Deep Learning model → severity score 0-5
+     |          Custom asymmetric loss (3x penalty for underprediction)
      |          Gemini LLM → penjelasan bahasa awam (jika risiko tinggi)
      |
      +----> /recommend
@@ -33,9 +34,13 @@ Foto Makanan
 ## Tech Stack
 
 - **Framework:** FastAPI + Uvicorn
-- **Model:** ExtraTrees Regressor (scikit-learn)
+- **Model ML:** TensorFlow/Keras Functional API (Deep Learning) ✨ **[NEW]**
+  - Architecture: Embedding → Dense layers with Dropout
+  - Custom asymmetric loss function (3x penalty for underprediction)
+  - Early stopping callback (target val_mae ≤ 0.02)
+  - 52,481 parameters, trained on 829 samples
 - **LLM:** Gemini 2.5 Flash (opsional, untuk penjelasan risiko tinggi)
-- **Data:** 854 pasangan makanan-obat, 14 kategori farmakologis, 61 kelas makanan
+- **Data:** 1,037 pasangan makanan-obat, 17 kategori farmakologis, 61 kelas makanan
 
 ## API Endpoints
 
@@ -162,6 +167,13 @@ Foto Makanan
 # Install dependencies
 pip install -r requirements.txt
 
+# Create Python 3.11 virtual environment (required for TensorFlow)
+python3.11 -m venv venv
+source venv/bin/activate  # or: venv\Scripts\activate (Windows)
+
+# Install packages
+pip install -r requirements.txt
+
 # Konfigurasi API key Gemini (opsional)
 cp .env.example .env
 
@@ -170,6 +182,17 @@ python run.py
 ```
 
 Server berjalan di `http://localhost:8000`. Dokumentasi interaktif di `http://localhost:8000/docs`.
+
+### Training Model (untuk retrain)
+
+```bash
+# Run training script
+python scripts/train_tf_reasoning_fixed.py
+
+# Output:
+# - models/jivara_tf_reasoning.keras (trained model)
+# - models/drug_category_encoder.pkl (encoder)
+```
 
 ## Deploy ke Railway
 
@@ -184,20 +207,24 @@ Server berjalan di `http://localhost:8000`. Dokumentasi interaktif di `http://lo
 jivara-ai-api/
 ├── app/
 │   ├── main.py               # FastAPI server
-│   ├── model_inference.py     # ExtraTrees inference + Gemini LLM
+│   ├── model_inference.py     # TensorFlow inference + Gemini LLM (UPDATED)
 │   └── nutrition_service.py   # Estimasi gizi dari TKPI
 ├── data/
-│   ├── drug_food_interactions.csv    # Ground truth 854 pasangan
+│   ├── drug_food_interactions.csv    # Ground truth 1,037 pasangan (UPDATED)
 │   ├── food_to_ingredient_kb.json    # 61 makanan + komposisi bahan
 │   ├── obat_bpom_cleaned_full.csv    # 23.682 produk obat BPOM
 │   └── unified_nutrition.csv         # 1.476 data gizi TKPI
 ├── models/
-│   └── drug_interaction_tree_model.pkl  # ExtraTrees model (92% CV accuracy)
+│   ├── jivara_tf_reasoning.keras        # TensorFlow model (NEW)
+│   ├── drug_category_encoder.pkl        # LabelEncoder (NEW)
+│   └── drug_interaction_tree_model.pkl  # Legacy ExtraTrees (deprecated)
 ├── notebooks/
 │   ├── 01_model_training.ipynb                    # Eksperimen Hybrid NCF
-│   └── 02_tree_based_recommender_all_in_one.ipynb # Training ExtraTrees (model utama)
+│   └── 02_tree_based_recommender_all_in_one.ipynb # Legacy ExtraTrees training
 ├── scripts/
-│   ├── generate_drug_food_interactions.py  # Generate ground truth CSV
+│   ├── generate_drug_food_interactions.py    # Generate ground truth CSV
+│   ├── train_tree_interaction_model.py       # Legacy ExtraTrees training
+│   └── train_tf_reasoning_fixed.py          # TensorFlow training (NEW)
 │   └── train_tree_interaction_model.py     # Training script
 ├── Dockerfile
 ├── Procfile
@@ -208,12 +235,24 @@ jivara-ai-api/
 
 ## Evaluasi Model
 
-Model: **ExtraTrees Regressor** (5-Fold Stratified CV)
+### Current Model: TensorFlow Deep Learning (May 2026)
+
+| Metrik | Nilai |
+|--------|-------|
+| Training Samples | 829 |
+| Validation Samples | 208 |
+| Validation MAE (0-5) | 0.5178 |
+| Validation Loss | 1.925 |
+| Total Parameters | 52,481 |
+| Model Size | 667 KB |
+
+### Legacy Model: ExtraTrees Regressor (5-Fold Stratified CV)
 
 | Metrik | Nilai |
 |--------|-------|
 | MAE (0-5) | 0.164 |
 | RMSE (0-5) | 0.633 |
 | Risk Accuracy | 92.04% |
+| Model Size | 11 MB |
 
-Risk category: aman, ringan, sedang, tinggi.
+**Risk categories:** aman, ringan, sedang, tinggi
