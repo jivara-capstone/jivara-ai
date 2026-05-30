@@ -17,7 +17,9 @@ data/
 .ipynb_checkpoints/
 notebooks/notebook097eff4862.ipynb
 notebooks/food_detection_custom_model*
+notebooks/food_detection_yolov8*
 demo_food_detection.py
+models/best_food_detector*
 
 # IDE
 .vscode/
