@@ -12,9 +12,12 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-
+data/
 # Jupyter
 .ipynb_checkpoints/
+notebooks/notebook097eff4862.ipynb
+notebooks/food_detection_custom_model*
+demo_food_detection.py
 
 # IDE
 .vscode/
