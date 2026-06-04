@@ -3,6 +3,8 @@
 REST API untuk analisis interaksi obat-makanan dan rekomendasi makanan aman.
 Bagian dari Capstone Project Coding Camp 2026.
 
+> 📦 **Penyimpanan Model:** File model (`.keras`, encoder, vocab) tersedia di Google Drive:
+> https://drive.google.com/drive/folders/1FU4IeaMimdCzl_C2vnrXR96IcY6A2ahL?usp=sharing
 
 ---
 
