@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.model_inference import (
-    check_interaction_with_reasoning,
+    check_interaction,
     get_food_recommendations,
     init_model,
 )
@@ -20,7 +20,7 @@ from app.nutrition_service import get_nutrition_estimate
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not init_model():
-        raise RuntimeError("Gagal memuat TensorFlow reasoning model dan artifacts.")
+        raise RuntimeError("Gagal memuat TensorFlow risk model dan artifacts.")
     yield
 
 
@@ -90,7 +90,7 @@ def interaction_check(req: InteractionRequest):
     Cek risiko interaksi antara makanan dan obat pasien.
     Jika risiko tinggi, sertakan rekomendasi alternatif makanan aman.
     """
-    result = check_interaction_with_reasoning(req.yolo_class, req.patient_medications)
+    result = check_interaction(req.yolo_class, req.patient_medications)
 
     if result.get("status") == "warning":
         recs = get_food_recommendations(req.patient_medications, top_n=100)

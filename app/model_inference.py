@@ -26,10 +26,6 @@ food_to_ingredients: dict = {}
 food_classes: list[str] = []
 df_bpom: pd.DataFrame | None = None
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-ENABLE_GEMINI_REASONING = os.getenv(
-    "ENABLE_GEMINI_REASONING", "false").lower() == "true"
-
 DEFAULT_DRUG_CATEGORIES = {
     "ace_arb": {
         "keywords": ["CANDESARTAN", "CAPTOPRIL", "ENALAPRIL", "IMIDAPRIL",
@@ -302,10 +298,10 @@ def _predict_severity_tf(food_name: str, drug_category: str) -> float:
 
 
 def _ensure_model_loaded() -> None:
-    """Pastikan TensorFlow reasoning model sudah siap sebelum inference."""
+    """Pastikan TensorFlow risk model sudah siap sebelum inference."""
     if tf_model is None or label_encoder is None:
         if not init_model():
-            raise RuntimeError("TensorFlow reasoning model belum berhasil dimuat.")
+            raise RuntimeError("TensorFlow risk model belum berhasil dimuat.")
 
 
 def map_drug_to_categories(drug_name: str) -> list[str]:
@@ -339,11 +335,11 @@ def map_drug_to_categories(drug_name: str) -> list[str]:
 # Prediksi Interaksi & Rekomendasi
 # =====================================================================
 
-def check_interaction_with_reasoning(
+def check_interaction(
     food_name: str,
     medications: list[str],
 ) -> dict:
-    """Cek interaksi obat-makanan + LLM reasoning untuk risiko tinggi."""
+    """Cek risiko interaksi obat-makanan menggunakan model TensorFlow."""
     _ensure_model_loaded()
 
     all_cats: set[str] = set()
@@ -394,40 +390,6 @@ def check_interaction_with_reasoning(
         "status": "warning" if high_risk_detected else "safe",
         "detailed_predictions": predictions,
     }
-
-    # LLM reasoning untuk risiko tinggi
-    if high_risk_detected and GEMINI_API_KEY and ENABLE_GEMINI_REASONING:
-        try:
-            import google.generativeai as genai
-
-            genai.configure(api_key=GEMINI_API_KEY)
-            high_risk_meds = [
-                p["medication"]
-                for p in predictions
-                if p["risk_level"] in ("sedang", "tinggi")
-            ]
-            llm = genai.GenerativeModel("gemini-2.5-flash")
-            prompt = (
-                f"Anda adalah asisten kesehatan virtual bernama Jivara.\n"
-                f"Pasien ingin makan '{food_name}' dan mengonsumsi obat: {', '.join(high_risk_meds)}.\n"
-                f"Sistem mendeteksi risiko interaksi (severity {highest_severity:.1f}/5).\n\n"
-                f"Jelaskan:\n1. Mengapa kombinasi ini berisiko\n"
-                f"2. Apa yang bisa terjadi\n3. Saran alternatif\n\n"
-                f"Bahasa Indonesia, ramah, 3-4 paragraf pendek."
-            )
-            result["llm_reasoning"] = llm.generate_content(prompt).text
-        except Exception as e:
-            result["llm_reasoning"] = f"Gagal memuat penjelasan AI: {e}"
-    elif high_risk_detected:
-        result["llm_reasoning"] = (
-            "Peringatan: terdeteksi risiko interaksi obat-makanan tingkat tinggi. "
-            "Silakan konsultasikan dengan dokter atau apoteker Anda."
-        )
-    else:
-        result["llm_reasoning"] = (
-            "Kombinasi makanan dan obat ini diprediksi aman. "
-            "Tetap perhatikan porsi dan waktu konsumsi obat sesuai anjuran dokter."
-        )
 
     return result
 

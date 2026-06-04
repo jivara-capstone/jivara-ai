@@ -1,48 +1,45 @@
 # Jivara AI API
 
-REST API untuk analisis interaksi obat-makanan dan rekomendasi makanan aman.
-Bagian dari Capstone Project Coding Camp 2026.
+REST API untuk estimasi nutrisi, analisis risiko interaksi obat-makanan, dan rekomendasi makanan aman.
+API ini menjadi service AI terpisah yang dipanggil oleh backend utama.
 
-> 📦 **Penyimpanan Model:** File model (`.keras`, encoder, vocab) tersedia di Google Drive:
+> Catatan: file model (`.keras`, encoder, dan vocabulary) disediakan terpisah melalui Google Drive:
 > https://drive.google.com/drive/folders/1FU4IeaMimdCzl_C2vnrXR96IcY6A2ahL?usp=sharing
-
----
 
 ## Arsitektur Sistem
 
-```
-Foto Makanan
+```text
+Foto makanan
      |
      v
-[YOLOv11 - Computer Vision]  <-- modul terpisah (tim CV)
+[Computer Vision YOLOv11]  ->  nama makanan
      |
-     v
-  Nama Makanan (misal: "rendang")
+     +--> /nutrition
+     |       Estimasi kalori, protein, lemak, dan karbohidrat.
      |
-     +----> /nutrition
-     |          Estimasi kalori, protein, lemak, karbo (sumber: TKPI)
+     +--> /interaction-check
+     |       TensorFlow risk classifier untuk menghitung risiko
+     |       interaksi obat-makanan.
      |
-     +----> /interaction-check
-     |          TensorFlow risk classifier (3 tier) → severity 0-5
-     |          Input: kategori obat + bahan makanan (multi-hot)
-     |          Gemini LLM → penjelasan bahasa awam (jika risiko tinggi)
-     |
-     +----> /recommend
-                Score 61 makanan terhadap obat pasien
-                Urutkan dari severity terendah → rekomendasi aman
+     +--> /recommend
+             Menilai daftar makanan terhadap obat pasien,
+             lalu mengurutkan makanan dari risiko terendah.
 ```
+
+Penjelasan naratif untuk pengguna tidak dibuat di service ini. Jika dibutuhkan,
+bagian tersebut ditangani oleh backend utama.
 
 ## Tech Stack
 
-- **Framework:** FastAPI + Uvicorn
-- **Model ML:** TensorFlow/Keras Functional API (Deep Learning)
-  - Klasifikasi 3 tingkat risiko (Aman / Perhatian / Bahaya)
-  - Input: kategori obat (embedding) + bahan makanan (multi-hot)
-  - Custom training loop (`tf.GradientTape`) + weighted cross-entropy
-  - Output tier dikonversi ke severity 0-5 agar kompatibel dengan API
-  - Accuracy 85.58%, dilatih pada 829 sampel
-- **LLM:** Gemini 2.5 Flash (opsional, untuk penjelasan risiko tinggi)
-- **Data:** 1,037 pasangan makanan-obat, 17 kategori farmakologis, 61 kelas makanan
+- Framework API: FastAPI + Uvicorn
+- Model ML: TensorFlow/Keras Functional API
+- Task model: klasifikasi 3 tingkat risiko
+  - Aman
+  - Perhatian
+  - Bahaya
+- Input model: kategori obat + bahan makanan dalam bentuk multi-hot vector
+- Output API: severity score 0-5, risk level, rekomendasi makanan, dan alert
+- Data: pasangan makanan-obat, kategori farmakologis, kelas makanan, dan data gizi
 
 ## API Endpoints
 
@@ -50,14 +47,15 @@ Foto Makanan
 |--------|----------|--------|
 | `GET` | `/health` | Health check |
 | `POST` | `/nutrition` | Estimasi nilai gizi |
-| `POST` | `/interaction-check` | Cek interaksi obat-makanan |
+| `POST` | `/interaction-check` | Cek risiko interaksi obat-makanan |
 | `POST` | `/recommend` | Rekomendasi makanan aman |
 | `GET` | `/alerts` | Riwayat notifikasi risiko |
 | `DELETE` | `/alerts` | Hapus riwayat alert |
 
-### POST `/interaction-check`
+## POST `/interaction-check`
 
-**Request:**
+Request:
+
 ```json
 {
   "yolo_class": "tumis-kangkung",
@@ -65,7 +63,8 @@ Foto Makanan
 }
 ```
 
-**Response:**
+Response:
+
 ```json
 {
   "detected_food": "tumis-kangkung",
@@ -78,20 +77,26 @@ Foto Makanan
       "severity_score": 4.3,
       "risk_level": "tinggi",
       "risky_categories": ["antikoagulan"],
-      "mechanisms": ["Meningkatkan efek pengencer darah / antagonis vitamin K"]
+      "mechanisms": [
+        "Meningkatkan efek pengencer darah / antagonis vitamin K"
+      ]
     }
   ],
-  "llm_reasoning": "Peringatan: terdeteksi risiko interaksi...",
   "recommended_foods": [
-    {"food_name": "apel", "severity_score": 0.5, "risk_level": "aman"}
+    {
+      "food_name": "apel",
+      "severity_score": 0.5,
+      "risk_level": "aman"
+    }
   ],
   "alert_sent": true
 }
 ```
 
-### POST `/recommend`
+## POST `/recommend`
 
-**Request:**
+Request:
+
 ```json
 {
   "patient_medications": ["METFORMIN", "SIMVASTATIN"],
@@ -99,7 +104,8 @@ Foto Makanan
 }
 ```
 
-**Response:**
+Response:
+
 ```json
 {
   "patient_medications": ["METFORMIN", "SIMVASTATIN"],
@@ -108,19 +114,32 @@ Foto Makanan
     "SIMVASTATIN": ["statin"]
   },
   "total_foods_analyzed": 61,
-  "summary": {"safe": 25, "avoid": 36},
+  "summary": {
+    "safe": 25,
+    "avoid": 36
+  },
   "recommended_foods": [
-    {"food_name": "ayam-betutu", "severity_score": 0.5, "risk_level": "aman"}
+    {
+      "food_name": "ayam-betutu",
+      "severity_score": 0.5,
+      "risk_level": "aman"
+    }
   ],
   "foods_to_avoid": [
-    {"food_name": "kunyit-asam", "severity_score": 4.5, "risk_level": "tinggi", "worst_category": "antidiabetes"}
+    {
+      "food_name": "kunyit-asam",
+      "severity_score": 4.5,
+      "risk_level": "tinggi",
+      "worst_category": "antidiabetes"
+    }
   ]
 }
 ```
 
-### POST `/nutrition`
+## POST `/nutrition`
 
-**Request:**
+Request:
+
 ```json
 {
   "yolo_class": "rendang",
@@ -128,7 +147,8 @@ Foto Makanan
 }
 ```
 
-**Response:**
+Response:
+
 ```json
 {
   "status": "success",
@@ -144,136 +164,71 @@ Foto Makanan
 }
 ```
 
-## Nama Obat yang Didukung
-
-| Kategori | Contoh Obat |
-|----------|-------------|
-| Antikoagulan | WARFARIN, CLOPIDOGREL, HEPARIN, RIVAROXABAN |
-| Antidiabetes | METFORMIN, GLIBENCLAMIDE, INSULIN, ACARBOSE |
-| ACE/ARB | CAPTOPRIL, LOSARTAN, VALSARTAN, CANDESARTAN |
-| CCB | AMLODIPINE, NIFEDIPINE, DILTIAZEM, VERAPAMIL |
-| Statin | SIMVASTATIN, ATORVASTATIN, ROSUVASTATIN |
-| Antibiotik Tetrasiklin | DOXYCYCLINE, TETRACYCLINE |
-| Antibiotik Fluorokuinolon | CIPROFLOXACIN, LEVOFLOXACIN |
-| MAOI | SELEGILINE, MOCLOBEMIDE, LINEZOLID |
-| Tiroid | LEVOTHYROXINE |
-| NSAID | IBUPROFEN, DICLOFENAC, MELOXICAM, NAPROXEN |
-| Antikonvulsan | PHENYTOIN, CARBAMAZEPINE, VALPROIC |
-| Glikosida Jantung | DIGOXIN |
-| Xantin | THEOPHYLLINE, AMINOPHYLLINE |
-| Imunosupresan | CYCLOSPORINE, TACROLIMUS |
-
 ## Setup Lokal
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Create Python 3.11 virtual environment (required for TensorFlow)
 python3.11 -m venv venv
-source venv/bin/activate  # or: venv\Scripts\activate (Windows)
-
-# Install packages
+source venv/bin/activate
 pip install -r requirements.txt
-
-# Konfigurasi API key Gemini (opsional)
-cp .env.example .env
-
-# Jalankan server
 python run.py
 ```
 
-Server berjalan di `http://localhost:8000`. Dokumentasi interaktif di `http://localhost:8000/docs`.
+Untuk Windows:
 
-### Training Model (untuk retrain)
-
-Training dilakukan via notebook `notebooks/train_tf_reasoning_classification.ipynb`
-(Google Colab, T4 GPU). Output:
-
-```
-models/drug_food_risk_model.keras   # model klasifikasi
-models/drug_encoder.pkl             # encoder kategori obat
-models/ingredient_vocab.json        # vocab bahan (urutan multi-hot)
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python run.py
 ```
 
-## Deploy ke Railway
+Server berjalan di `http://localhost:8000`.
+Dokumentasi interaktif tersedia di `http://localhost:8000/docs`.
 
-1. Push ke GitHub
-2. Railway → New Project → Deploy from GitHub
-3. Set environment variable `GEMINI_API_KEY` (opsional)
-4. Deploy otomatis dari `Dockerfile` atau `Procfile`
+## Environment
+
+Tidak ada API key eksternal yang wajib untuk menjalankan service ini.
+File `.env.example` disediakan sebagai placeholder jika nanti ada konfigurasi tambahan.
+
+## Model Artifacts
+
+File yang dibutuhkan saat runtime:
+
+```text
+models/drug_food_risk_model.keras
+models/drug_encoder.pkl
+models/ingredient_vocab.json
+```
+
+## Deploy
+
+1. Pastikan model artifacts tersedia di folder `models/`.
+2. Install dependency dari `requirements.txt`.
+3. Jalankan aplikasi dengan `python run.py` atau server ASGI sesuai platform deploy.
+4. Pastikan endpoint `/health` mengembalikan status `ok`.
 
 ## Struktur Folder
 
-```
+```text
 jivara-ai-api/
 ├── app/
-│   ├── main.py               # FastAPI server
-│   ├── model_inference.py     # TensorFlow inference + Gemini LLM (UPDATED)
-│   └── nutrition_service.py   # Estimasi gizi dari TKPI
+│   ├── main.py
+│   ├── model_inference.py
+│   └── nutrition_service.py
 ├── data/
-│   ├── drug_food_interactions.csv    # Ground truth 1,037 pasangan (UPDATED)
-│   ├── food_to_ingredient_kb.json    # 61 makanan + komposisi bahan
-│   ├── obat_bpom_cleaned_full.csv    # 23.682 produk obat BPOM
-│   └── unified_nutrition.csv         # 1.476 data gizi TKPI
+│   ├── drug_food_interactions.csv
+│   ├── food_to_ingredient_kb.json
+│   ├── obat_bpom_cleaned_full.csv
+│   └── unified_nutrition.csv
 ├── models/
-│   ├── drug_food_risk_model.keras       # TF risk classifier 3-tier
-│   ├── drug_encoder.pkl                 # LabelEncoder kategori obat
-│   └── ingredient_vocab.json            # urutan bahan untuk multi-hot
+│   ├── drug_food_risk_model.keras
+│   ├── drug_encoder.pkl
+│   └── ingredient_vocab.json
 ├── notebooks/
-│   └── train_tf_reasoning_classification.ipynb    # Drug-food risk classifier 3-kelas (GradientTape)
 ├── scripts/
-│   └── generate_drug_food_interactions.py    # Generate ground truth CSV
 ├── Dockerfile
 ├── Procfile
 ├── requirements.txt
 ├── run.py
 └── .env.example
 ```
-
-## Evaluasi Model
-
-### Drug-Food Risk Classifier — 3-Class (TensorFlow, June 2026)
-
-Notebook: `notebooks/train_tf_reasoning_classification.ipynb`
-
-Model klasifikasi tingkat risiko interaksi obat-makanan. Severity 0-5 dikelompokkan
-menjadi 3 tingkat untuk mengatasi distribusi data yang tidak seimbang
-(severity 0 mendominasi ~68% data).
-
-**Arsitektur:**
-- Input: kategori obat (Embedding 32) + bahan makanan (multi-hot)
-- Dense 256 → 128 → 64 → Softmax(3)
-- Custom training loop dengan `tf.GradientTape`
-- Custom loss: weighted categorical cross-entropy
-- Early stopping (restore best weights), logging TensorBoard
-
-**Tingkat risiko:**
-- Aman (severity 0-1)
-- Perhatian (severity 2-3)
-- Bahaya (severity 4-5)
-
-**Hasil (validation set, stratified 80/20):**
-
-| Metrik | Nilai |
-|--------|-------|
-| Accuracy | 85.58% |
-| MAE (risk tier, skala 0-2) | 0.2389 |
-| MAE (normalized 0-1) | 0.1195 |
-| Baseline majority | 68.27% |
-| Training samples | 829 |
-| Validation samples | 208 |
-
-**Per-class (validation):**
-
-| Tingkat | Precision | Recall | F1-score | Support |
-|---------|-----------|--------|----------|---------|
-| Aman | 0.91 | 0.90 | 0.90 | 145 |
-| Perhatian | 0.70 | 0.75 | 0.72 | 40 |
-| Bahaya | 0.82 | 0.78 | 0.80 | 23 |
-| **Macro avg** | 0.81 | 0.81 | 0.81 | 208 |
-| **Weighted avg** | 0.86 | 0.86 | 0.86 | 208 |
-
-Catatan: model bekerja di tingkat **bahan**, sehingga dapat menilai makanan di luar
-61 makanan dataset selama komposisi bahannya diketahui (pada uji food-level split,
-accuracy ~83% untuk makanan yang tidak pernah dilihat saat training).
