@@ -3,7 +3,6 @@
 REST API untuk analisis interaksi obat-makanan dan rekomendasi makanan aman.
 Bagian dari Capstone Project Coding Camp 2026.
 
-**Penanggung jawab:** Hanif Rifan Ash Shidiq (AI Engineer)
 
 ---
 
@@ -22,8 +21,8 @@ Foto Makanan
      |          Estimasi kalori, protein, lemak, karbo (sumber: TKPI)
      |
      +----> /interaction-check
-     |          TensorFlow Deep Learning model → severity score 0-5
-     |          Custom asymmetric loss (3x penalty for underprediction)
+     |          TensorFlow risk classifier (3 tier) → severity 0-5
+     |          Input: kategori obat + bahan makanan (multi-hot)
      |          Gemini LLM → penjelasan bahasa awam (jika risiko tinggi)
      |
      +----> /recommend
@@ -34,11 +33,12 @@ Foto Makanan
 ## Tech Stack
 
 - **Framework:** FastAPI + Uvicorn
-- **Model ML:** TensorFlow/Keras Functional API (Deep Learning) ✨ **[NEW]**
-  - Architecture: Embedding → Dense layers with Dropout
-  - Custom asymmetric loss function (3x penalty for underprediction)
-  - Early stopping callback (target val_mae ≤ 0.02)
-  - 52,481 parameters, trained on 829 samples
+- **Model ML:** TensorFlow/Keras Functional API (Deep Learning)
+  - Klasifikasi 3 tingkat risiko (Aman / Perhatian / Bahaya)
+  - Input: kategori obat (embedding) + bahan makanan (multi-hot)
+  - Custom training loop (`tf.GradientTape`) + weighted cross-entropy
+  - Output tier dikonversi ke severity 0-5 agar kompatibel dengan API
+  - Accuracy 85.58%, dilatih pada 829 sampel
 - **LLM:** Gemini 2.5 Flash (opsional, untuk penjelasan risiko tinggi)
 - **Data:** 1,037 pasangan makanan-obat, 17 kategori farmakologis, 61 kelas makanan
 
@@ -67,13 +67,13 @@ Foto Makanan
 ```json
 {
   "detected_food": "tumis-kangkung",
-  "highest_severity": 5.0,
+  "highest_severity": 4.3,
   "status": "warning",
   "detailed_predictions": [
     {
       "medication": "WARFARIN",
       "matched_categories": ["antikoagulan"],
-      "severity_score": 5.0,
+      "severity_score": 4.3,
       "risk_level": "tinggi",
       "risky_categories": ["antikoagulan"],
       "mechanisms": ["Meningkatkan efek pengencer darah / antagonis vitamin K"]
@@ -81,7 +81,7 @@ Foto Makanan
   ],
   "llm_reasoning": "Peringatan: terdeteksi risiko interaksi...",
   "recommended_foods": [
-    {"food_name": "apel", "severity_score": 0.0, "risk_level": "aman"}
+    {"food_name": "apel", "severity_score": 0.5, "risk_level": "aman"}
   ],
   "alert_sent": true
 }
@@ -108,10 +108,10 @@ Foto Makanan
   "total_foods_analyzed": 61,
   "summary": {"safe": 25, "avoid": 36},
   "recommended_foods": [
-    {"food_name": "ayam-betutu", "severity_score": 0.0, "risk_level": "aman"}
+    {"food_name": "ayam-betutu", "severity_score": 0.5, "risk_level": "aman"}
   ],
   "foods_to_avoid": [
-    {"food_name": "kunyit-asam", "severity_score": 5.0, "risk_level": "tinggi", "worst_category": "antidiabetes"}
+    {"food_name": "kunyit-asam", "severity_score": 4.5, "risk_level": "tinggi", "worst_category": "antidiabetes"}
   ]
 }
 ```
@@ -185,13 +185,13 @@ Server berjalan di `http://localhost:8000`. Dokumentasi interaktif di `http://lo
 
 ### Training Model (untuk retrain)
 
-```bash
-# Run training script
-python scripts/train_tf_reasoning_fixed.py
+Training dilakukan via notebook `notebooks/train_tf_reasoning_classification.ipynb`
+(Google Colab, T4 GPU). Output:
 
-# Output:
-# - models/jivara_tf_reasoning.keras (trained model)
-# - models/drug_category_encoder.pkl (encoder)
+```
+models/drug_food_risk_model.keras   # model klasifikasi
+models/drug_encoder.pkl             # encoder kategori obat
+models/ingredient_vocab.json        # vocab bahan (urutan multi-hot)
 ```
 
 ## Deploy ke Railway
@@ -215,17 +215,13 @@ jivara-ai-api/
 │   ├── obat_bpom_cleaned_full.csv    # 23.682 produk obat BPOM
 │   └── unified_nutrition.csv         # 1.476 data gizi TKPI
 ├── models/
-│   ├── jivara_tf_reasoning.keras        # TensorFlow model (NEW)
-│   ├── drug_category_encoder.pkl        # LabelEncoder (NEW)
-│   └── drug_interaction_tree_model.pkl  # Legacy ExtraTrees (deprecated)
+│   ├── drug_food_risk_model.keras       # TF risk classifier 3-tier
+│   ├── drug_encoder.pkl                 # LabelEncoder kategori obat
+│   └── ingredient_vocab.json            # urutan bahan untuk multi-hot
 ├── notebooks/
-│   ├── 01_model_training.ipynb                    # Eksperimen Hybrid NCF
-│   └── 02_tree_based_recommender_all_in_one.ipynb # Legacy ExtraTrees training
+│   └── train_tf_reasoning_classification.ipynb    # Drug-food risk classifier 3-kelas (GradientTape)
 ├── scripts/
-│   ├── generate_drug_food_interactions.py    # Generate ground truth CSV
-│   ├── train_tree_interaction_model.py       # Legacy ExtraTrees training
-│   └── train_tf_reasoning_fixed.py          # TensorFlow training (NEW)
-│   └── train_tree_interaction_model.py     # Training script
+│   └── generate_drug_food_interactions.py    # Generate ground truth CSV
 ├── Dockerfile
 ├── Procfile
 ├── requirements.txt
@@ -235,24 +231,47 @@ jivara-ai-api/
 
 ## Evaluasi Model
 
-### Current Model: TensorFlow Deep Learning (May 2026)
+### Drug-Food Risk Classifier — 3-Class (TensorFlow, June 2026)
+
+Notebook: `notebooks/train_tf_reasoning_classification.ipynb`
+
+Model klasifikasi tingkat risiko interaksi obat-makanan. Severity 0-5 dikelompokkan
+menjadi 3 tingkat untuk mengatasi distribusi data yang tidak seimbang
+(severity 0 mendominasi ~68% data).
+
+**Arsitektur:**
+- Input: kategori obat (Embedding 32) + bahan makanan (multi-hot)
+- Dense 256 → 128 → 64 → Softmax(3)
+- Custom training loop dengan `tf.GradientTape`
+- Custom loss: weighted categorical cross-entropy
+- Early stopping (restore best weights), logging TensorBoard
+
+**Tingkat risiko:**
+- Aman (severity 0-1)
+- Perhatian (severity 2-3)
+- Bahaya (severity 4-5)
+
+**Hasil (validation set, stratified 80/20):**
 
 | Metrik | Nilai |
 |--------|-------|
-| Training Samples | 829 |
-| Validation Samples | 208 |
-| Validation MAE (0-5) | 0.5178 |
-| Validation Loss | 1.925 |
-| Total Parameters | 52,481 |
-| Model Size | 667 KB |
+| Accuracy | 85.58% |
+| MAE (risk tier, skala 0-2) | 0.2389 |
+| MAE (normalized 0-1) | 0.1195 |
+| Baseline majority | 68.27% |
+| Training samples | 829 |
+| Validation samples | 208 |
 
-### Legacy Model: ExtraTrees Regressor (5-Fold Stratified CV)
+**Per-class (validation):**
 
-| Metrik | Nilai |
-|--------|-------|
-| MAE (0-5) | 0.164 |
-| RMSE (0-5) | 0.633 |
-| Risk Accuracy | 92.04% |
-| Model Size | 11 MB |
+| Tingkat | Precision | Recall | F1-score | Support |
+|---------|-----------|--------|----------|---------|
+| Aman | 0.91 | 0.90 | 0.90 | 145 |
+| Perhatian | 0.70 | 0.75 | 0.72 | 40 |
+| Bahaya | 0.82 | 0.78 | 0.80 | 23 |
+| **Macro avg** | 0.81 | 0.81 | 0.81 | 208 |
+| **Weighted avg** | 0.86 | 0.86 | 0.86 | 208 |
 
-**Risk categories:** aman, ringan, sedang, tinggi
+Catatan: model bekerja di tingkat **bahan**, sehingga dapat menilai makanan di luar
+61 makanan dataset selama komposisi bahannya diketahui (pada uji food-level split,
+accuracy ~83% untuk makanan yang tidak pernah dilihat saat training).

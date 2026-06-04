@@ -1,10 +1,6 @@
 # Environment
 .env
 .venv/
-data/images
-data/labels
-data/data.zip
-data/data.yaml
 
 # Python
 __pycache__/
@@ -12,12 +8,19 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-data/
+
+# Data — abaikan semua KECUALI file yang dibutuhkan API saat runtime
+data/*
+!data/food_to_ingredient_kb.json
+!data/obat_bpom_cleaned_full.csv
+!data/unified_nutrition.csv
+
 # Jupyter
 .ipynb_checkpoints/
 notebooks/notebook097eff4862.ipynb
 notebooks/food_detection_custom_model*
 notebooks/food_detection_yolov8*
+notebooks/food_detection_yolov11*
 demo_food_detection.py
 models/best_food_detector*
 

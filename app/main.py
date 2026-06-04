@@ -19,7 +19,8 @@ from app.nutrition_service import get_nutrition_estimate
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_model()
+    if not init_model():
+        raise RuntimeError("Gagal memuat TensorFlow reasoning model dan artifacts.")
     yield
 
 

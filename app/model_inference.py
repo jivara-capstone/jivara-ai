@@ -131,13 +131,23 @@ DEFAULT_DRUG_CATEGORIES = {
 # Custom TensorFlow Components (for model loading)
 # =====================================================================
 
-def asymmetric_severity_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
-    """Custom loss function: asymmetric penalty on underprediction."""
-    error = y_true - y_pred
-    squared_error = tf.square(error)
-    penalty = tf.where(y_pred < y_true, 3.0, 1.0)
-    weighted_loss = squared_error * penalty
-    return tf.reduce_mean(weighted_loss)
+NUM_CLASSES = 3
+
+# Tier 3-kelas -> severity 0-5 (titik tengah tiap rentang):
+#   Aman (0-1) -> 0.5, Perhatian (2-3) -> 2.5, Bahaya (4-5) -> 4.5
+TIER_MIDPOINTS = np.array([0.5, 2.5, 4.5], dtype=np.float32)
+
+_class_weights = tf.constant([1.0] * NUM_CLASSES, dtype=tf.float32)
+
+
+def weighted_sparse_ce(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    """Custom loss: manual weighted categorical cross-entropy (untuk load model)."""
+    y_true = tf.cast(y_true, tf.int32)
+    y_oh = tf.one_hot(y_true, NUM_CLASSES)
+    y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
+    ce = -tf.reduce_sum(y_oh * tf.math.log(y_pred), axis=-1)
+    w = tf.gather(_class_weights, y_true)
+    return tf.reduce_mean(ce * w)
 
 
 # =====================================================================
@@ -151,11 +161,12 @@ def init_model() -> bool:
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    # Paths for TensorFlow model (NEW)
+    # Paths for TensorFlow model (3-class risk classifier)
     tf_model_path = os.path.join(
-        base_dir, "models", "jivara_tf_reasoning.keras")
+        base_dir, "models", "drug_food_risk_model.keras")
     encoder_path = os.path.join(
-        base_dir, "models", "drug_category_encoder.pkl")
+        base_dir, "models", "drug_encoder.pkl")
+    vocab_path = os.path.join(base_dir, "models", "ingredient_vocab.json")
 
     # Paths for data artifacts
     food_kb_path = os.path.join(base_dir, "data", "food_to_ingredient_kb.json")
@@ -169,8 +180,7 @@ def init_model() -> bool:
     try:
         tf_model = tf.keras.models.load_model(
             tf_model_path,
-            custom_objects={
-                'asymmetric_severity_loss': asymmetric_severity_loss}
+            custom_objects={'weighted_sparse_ce': weighted_sparse_ce}
         )
         print(f"[OK] TensorFlow model dimuat dari {tf_model_path}")
     except Exception as e:
@@ -191,24 +201,28 @@ def init_model() -> bool:
         print(f"[ERROR] Gagal load encoder: {e}")
         return False
 
-    # Load food-ingredient KB (for ingredient vocabulary and food_to_ingredients)
+    # Load food-ingredient KB (for food_to_ingredients mapping)
     if os.path.exists(food_kb_path):
         try:
             with open(food_kb_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 food_to_ingredients = data.get("food_to_ingredients", {})
-
-                # Build ingredient vocabulary from KB
-                all_ingredients = set()
-                for ingredients in food_to_ingredients.values():
-                    all_ingredients.update(ingredients)
-                ingredient_vocab = sorted(list(all_ingredients))
-
-                print(
-                    f"[OK] Food KB dimuat: {len(food_to_ingredients)} makanan, {len(ingredient_vocab)} ingredients")
+            print(f"[OK] Food KB dimuat: {len(food_to_ingredients)} makanan")
         except Exception as e:
             print(f"[WARNING] Gagal load food KB: {e}")
             return False
+
+    # Load ingredient vocabulary dari file model (urutan WAJIB sama dgn training)
+    if not os.path.exists(vocab_path):
+        print(f"[ERROR] ingredient_vocab.json tidak ditemukan: {vocab_path}")
+        return False
+    try:
+        with open(vocab_path, "r", encoding="utf-8") as f:
+            ingredient_vocab = json.load(f)
+        print(f"[OK] Ingredient vocab dimuat: {len(ingredient_vocab)} ingredients")
+    except Exception as e:
+        print(f"[ERROR] Gagal load ingredient vocab: {e}")
+        return False
 
     # Load BPOM database (for drug mapping fallback)
     if os.path.exists(bpom_path):
@@ -273,9 +287,11 @@ def _predict_severity_tf(food_name: str, drug_category: str) -> float:
         drug_input = np.array([[drug_cat_encoded]], dtype=np.int32)
         ing_input = ing_features.reshape(1, -1)
 
-        # Predict
-        severity = float(tf_model.predict(
-            [drug_input, ing_input], verbose=0)[0][0])
+        # Predict: model 3-kelas -> [P(Aman), P(Perhatian), P(Bahaya)]
+        probs = tf_model.predict([drug_input, ing_input], verbose=0)[0]
+
+        # Konversi distribusi tier -> severity 0-5 (expected value via midpoint)
+        severity = float(np.dot(probs, TIER_MIDPOINTS))
 
         # Clip to valid range
         return float(np.clip(severity, 0.0, 5.0))
@@ -283,6 +299,13 @@ def _predict_severity_tf(food_name: str, drug_category: str) -> float:
         print(
             f"[ERROR] Prediction failed for {food_name}/{drug_category}: {e}")
         return 0.0
+
+
+def _ensure_model_loaded() -> None:
+    """Pastikan TensorFlow reasoning model sudah siap sebelum inference."""
+    if tf_model is None or label_encoder is None:
+        if not init_model():
+            raise RuntimeError("TensorFlow reasoning model belum berhasil dimuat.")
 
 
 def map_drug_to_categories(drug_name: str) -> list[str]:
@@ -321,8 +344,7 @@ def check_interaction_with_reasoning(
     medications: list[str],
 ) -> dict:
     """Cek interaksi obat-makanan + LLM reasoning untuk risiko tinggi."""
-    if tree_pipeline is None:
-        init_model()
+    _ensure_model_loaded()
 
     all_cats: set[str] = set()
     med_cat_map: dict[str, list[str]] = {}
@@ -412,8 +434,7 @@ def check_interaction_with_reasoning(
 
 def get_food_recommendations(medications: list[str], top_n: int = 10) -> dict:
     """Rekomendasi makanan aman berdasarkan predicted severity."""
-    if tree_pipeline is None:
-        init_model()
+    _ensure_model_loaded()
 
     all_cats: set[str] = set()
     med_cat_map: dict[str, list[str]] = {}
